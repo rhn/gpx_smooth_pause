@@ -30,12 +30,18 @@ TRIGGER_TIME = datetime.timedelta(seconds=10)
 def n900_uncertainty_m(point):
     FACTOR = 10
     horz = float(point.extensions['hdopCM']) / 100 / FACTOR
-    vert = float(point.extensions['vdopCM']) / 100 / FACTOR
+    if point.elevation is None:
+        vert = None
+    else:
+        vert = float(point.extensions['vdopCM']) / 100 / FACTOR
     return namedtuple("Uncertainty", ['horz', 'vert'])(horz, vert)
 
 def timediff(pt1, pt2):
     return pt1.time - pt2.time
 
+
+def cleanup(points):
+    return filter(lambda pt: pt.time is not None, points)
 
 def does_overlap(it, initial, get_uncertainty):
     def check_overlap(pt, other):
@@ -218,9 +224,9 @@ if __name__ == '__main__':
     get_uncertainty_m = n900_uncertainty_m
     for track in gpx.tracks:
         for segment in track.segments:
-            stops = stop_finder(segment.points, get_uncertainty_m)
+            stops = stop_finder(cleanup(segment.points), get_uncertainty_m)
             #save_segments(output, stops)
             #save_simplified_stops(output, stops, get_uncertainty_m)
             #save_movement_only(output, segment.points, stops)
-            segment.points = replace_stops(segment.points, stops, get_uncertainty_m)
+            segment.points = replace_stops(cleanup(segment.points), stops, get_uncertainty_m)
     print(gpx.to_xml(), file=output)
