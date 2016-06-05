@@ -85,16 +85,15 @@ def time_margins(it, margin):
     it = list(it)
     if len(it) == 0:
         return
-
+    
     def find_idx(it, compare):
         for i, point in enumerate(it):
             if compare(point) > margin:
                 return i
         return 0
 
-    start = it[0]
-    start_idx = find_idx(it, lambda point: timediff(start, point))
-    end_idx = len(it) - find_idx(reversed(it), lambda point: timediff(point, start))
+    start_idx = find_idx(it, lambda point: timediff(point, it[0]))
+    end_idx = len(it) - find_idx(reversed(it), lambda point: timediff(it[-1], point))
     return it[start_idx:end_idx]
 
 
@@ -147,7 +146,7 @@ def find_stops2(segment, get_uncertainty):
         if is_moving(point, future, get_uncertainty) is not False:
             continue
         stopped_points = list(while_overlap([point] + list(future), [], get_uncertainty))
-        yield stopped_points#time_margins(stopped_points, TRIGGER_TIME / 2)
+        yield stopped_points #time_margins(stopped_points, TRIGGER_TIME / 2) # not an improvement over small stops
         seg_iter.advance_after(stopped_points[-1])
 
 def weighted_average(items):
@@ -220,7 +219,7 @@ if __name__ == '__main__':
     for track in gpx.tracks:
         for segment in track.segments:
             stops = stop_finder(segment.points, get_uncertainty_m)
-            #save_stops(output, stop_finder(segment.points, get_uncertainty_m))
+            #save_segments(output, stops)
             #save_simplified_stops(output, stops, get_uncertainty_m)
             #save_movement_only(output, segment.points, stops)
             segment.points = replace_stops(segment.points, stops, get_uncertainty_m)
