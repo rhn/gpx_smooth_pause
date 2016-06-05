@@ -20,6 +20,9 @@ class FutureIter:
     
     def advance_after(self, item):
         self.next_ptr = self.it.index(item) + 1 # FIXME: accept indices
+        
+    def advance_to(self, item):
+        self.next_ptr = self.it.index(item)
 
 TRIGGER_TIME = datetime.timedelta(seconds=10)
 
@@ -101,10 +104,10 @@ class OnDemand:
         self.last_item = []
 
     def __iter__(self):
-        self.it = seq.__iter__()
+        self.it = self.seq.__iter__()
         while True:
             if len(self.last_item) == 0:
-                self.last_item.append(self.it.next())
+                self.last_item.append(self.it.__next__())
             yield self.last_item[-1]
     
     def next(self):
@@ -116,6 +119,26 @@ def filter_out_segments(base, segments):
         if point == p2:
             checker.next()
         yield point
+
+def split_by_segments(base, segments):
+    checker = OnDemand(segments)
+    points = FutureIter(base)
+    def until_matches(pts, limit):
+        for point in pts:
+            if point == limit:
+                break
+            yield point
+
+    for (point, future), seg in zip(points, checker):
+        while len(seg) == 0:
+            checker.next()
+        if point == seg[0]:
+            checker.next()
+            points.advance_after(seg[-1])
+        else:
+            yield until_matches([point] + future, seg[0])
+            points.advance_to(seg[0])
+
 
 def find_stops(segment, get_uncertainty):
     """Good speed.
@@ -181,6 +204,9 @@ def replace_stops(stops_iter, get_uncertainty, skip_moves=False):
 def pauses_only(stops):
     return (stop[1] for stop in stops if stop[0] == 'pause')
 
+def save_movement_only(output, points, stops):
+    save_segments(output, split_by_segments(points, pauses_only(stops)))
+
 def save_simplified_stops(output, stops, get_uncertainty):
     save_segments(output, (simplify_stop(seg, get_uncertainty) for seg in pauses_only(stops)))
 
@@ -216,6 +242,7 @@ if __name__ == '__main__':
         for segment in track.segments:
             stops = stop_finder(segment.points, get_uncertainty_m)
             #save_stops(output, stop_finder(segment.points, get_uncertainty_m))
-            save_simplified_stops(output, stops, get_uncertainty_m)
+            #save_simplified_stops(output, stops, get_uncertainty_m)
+            save_movement_only(output, segment.points, stops)
             #segment.points = replace_stops(stop_finder(segment.points, get_uncertainty_m), get_uncertainty_m)
 #    print(gpx.to_xml(), file=output)
