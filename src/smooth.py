@@ -7,6 +7,13 @@ import datetime
 from itertools import compress, tee, chain, repeat
 
 
+"""
+Detects stops in GPX tracks based on HDOP values and simplifies these stops into less point-intensive lines.
+
+TODO: deal with DOP increases by decreasing magic factor and enabling time margin trimming
+"""
+
+
 class FutureIter:
     def __init__(self, it):
         self.it = list(it)
