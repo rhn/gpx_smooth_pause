@@ -97,21 +97,6 @@ def time_margins(it, margin):
     end_idx = len(it) - find_idx(reversed(it), lambda point: timediff(point, start))
     return it[start_idx:end_idx]
 
-class OnDemand:
-    def __init__(self, seq):
-        self.seq = seq
-        self.it = None
-        self.last_item = []
-
-    def __iter__(self):
-        self.it = self.seq.__iter__()
-        while True:
-            if len(self.last_item) == 0:
-                self.last_item.append(self.it.__next__())
-            yield self.last_item[-1]
-    
-    def next(self):
-        self.last_item = []
 
 def replace_segments(base, segments):
     points = FutureIter(base)
