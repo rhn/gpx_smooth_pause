@@ -114,7 +114,6 @@ class OnDemand:
         self.last_item = []
 
 def replace_segments(base, segments):
-    checker = OnDemand(segments)
     points = FutureIter(base)
 
     def until_matches(pts, limit):
@@ -123,13 +122,19 @@ def replace_segments(base, segments):
                 break
             yield point
 
-    for (point, future), (seg, replacement) in zip(points, checker):
+    seg = []
+    checker = segments.__iter__()
+    for point, future in points:
         while len(seg) == 0:
-            checker.next()
+            try:
+                seg, replacement = checker.__next__()
+            except StopIteration:
+                yield [point] + future
+                return
         if point == seg[0]:
             yield replacement
-            checker.next()
             points.advance_after(seg[-1])
+            seg = []
         else:
             yield until_matches([point] + future, seg[0])
             points.advance_to(seg[0])
@@ -234,6 +239,4 @@ if __name__ == '__main__':
             #save_simplified_stops(output, stops, get_uncertainty_m)
             #save_movement_only(output, segment.points, stops)
             segment.points = replace_stops(segment.points, stops, get_uncertainty_m)
-            #print(len(segment.points))
-            #save_segments(output, [segment.points])
     print(gpx.to_xml(), file=output)
