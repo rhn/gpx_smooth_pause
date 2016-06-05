@@ -4,7 +4,7 @@ import gpxpy
 
 from collections import namedtuple
 import datetime
-from itertools import compress, tee, chain
+from itertools import compress, tee, chain, repeat
 
 
 class FutureIter:
@@ -113,26 +113,21 @@ class OnDemand:
     def next(self):
         self.last_item = []
 
-def filter_out_segments(base, segments):
-    checker = OnDemand(chain(segments))
-    for point, p2 in zip(base, checker):
-        if point == p2:
-            checker.next()
-        yield point
-
-def split_by_segments(base, segments):
+def replace_segments(base, segments):
     checker = OnDemand(segments)
     points = FutureIter(base)
+
     def until_matches(pts, limit):
         for point in pts:
             if point == limit:
                 break
             yield point
 
-    for (point, future), seg in zip(points, checker):
+    for (point, future), (seg, replacement) in zip(points, checker):
         while len(seg) == 0:
             checker.next()
         if point == seg[0]:
+            yield replacement
             checker.next()
             points.advance_after(seg[-1])
         else:
@@ -148,10 +143,8 @@ def find_stops(segment, get_uncertainty):
     for point, future in seg_iter:
         stopped_points = list(while_overlap([point] + list(future), [], get_uncertainty))
         last = stopped_points[-1]
-        if timediff(last, point) < TRIGGER_TIME:
-            yield from (('move', point) for point in stopped_points)
-        else:
-            yield 'pause', stopped_points
+        if timediff(last, point) > TRIGGER_TIME:
+            yield stopped_points
         seg_iter.advance_after(last)
 
 
@@ -162,10 +155,9 @@ def find_stops2(segment, get_uncertainty):
     seg_iter = FutureIter(segment)
     for point, future in seg_iter:
         if is_moving(point, future, get_uncertainty) is not False:
-            yield 'move', point
             continue
         stopped_points = list(while_overlap([point] + list(future), [], get_uncertainty))
-        yield 'pause', stopped_points#time_margins(stopped_points, TRIGGER_TIME / 2)
+        yield stopped_points#time_margins(stopped_points, TRIGGER_TIME / 2)
         seg_iter.advance_after(stopped_points[-1])
 
 def weighted_average(items):
@@ -191,24 +183,21 @@ def simplify_stop(points, get_uncertainty):
     for pts in split_time(points, datetime.timedelta(seconds=60)):
         yield find_centroid_simple(pts, get_uncertainty)
 
-def replace_stops(stops_iter, get_uncertainty, skip_moves=False):
-    new_points = []
-    for action, data in stops_iter:
-        if action == 'move' and not skip_moves:
-            yield data
-        elif action == 'pause':
-            yield from simplify_stop(data, get_uncertainty)
-        else:
-            raise Exception("Invalid action")
-
-def pauses_only(stops):
-    return (stop[1] for stop in stops if stop[0] == 'pause')
+def replace_stops(points, stops, get_uncertainty):
+    return chain.from_iterable(
+                     replace_segments(points,
+                                      ((stop, simplify_stop(stop, get_uncertainty))
+                                       for stop in stops)))
 
 def save_movement_only(output, points, stops):
-    save_segments(output, split_by_segments(points, pauses_only(stops)))
+    save_segments(output,
+                  (seg for seg
+                   in replace_segments(points,
+                                       zip(stops, repeat(None)))
+                   if seg is not None))
 
 def save_simplified_stops(output, stops, get_uncertainty):
-    save_segments(output, (simplify_stop(seg, get_uncertainty) for seg in pauses_only(stops)))
+    save_segments(output, (simplify_stop(seg, get_uncertainty) for seg in stops))
 
 def save_segments(output, segments):
     gpx = gpxpy.gpx.GPX()
@@ -243,6 +232,8 @@ if __name__ == '__main__':
             stops = stop_finder(segment.points, get_uncertainty_m)
             #save_stops(output, stop_finder(segment.points, get_uncertainty_m))
             #save_simplified_stops(output, stops, get_uncertainty_m)
-            save_movement_only(output, segment.points, stops)
-            #segment.points = replace_stops(stop_finder(segment.points, get_uncertainty_m), get_uncertainty_m)
-#    print(gpx.to_xml(), file=output)
+            #save_movement_only(output, segment.points, stops)
+            segment.points = replace_stops(segment.points, stops, get_uncertainty_m)
+            #print(len(segment.points))
+            #save_segments(output, [segment.points])
+    print(gpx.to_xml(), file=output)
