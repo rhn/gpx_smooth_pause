@@ -6,7 +6,7 @@ from collections import namedtuple
 import datetime
 from itertools import compress, tee, chain, repeat
 
-
+import device
 """
 Detects stops in GPX tracks based on HDOP values and simplifies these stops into less point-intensive lines.
 
@@ -36,12 +36,8 @@ TRIGGER_TIME = datetime.timedelta(seconds=10)
 
 def n900_uncertainty_m(point):
     FACTOR = 10
-    horz = float(point.extensions['hdopCM']) / 100 / FACTOR
-    if point.elevation is None:
-        vert = None
-    else:
-        vert = float(point.extensions['vdopCM']) / 100 / FACTOR
-    return namedtuple("Uncertainty", ['horz', 'vert'])(horz, vert)
+    rad = device.n900_uncertainty_m(point)
+    return device.Radius(rad.horz / FACTOR, rad.vert / FACTOR)
 
 def timediff(pt1, pt2):
     return pt1.time - pt2.time
