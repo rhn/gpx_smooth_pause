@@ -1,7 +1,6 @@
 import gpxpy
 
-
-from device import n900_uncertainty_m, n900_m_to_dop
+from gpxtools.device import n900_uncertainty_m, n900_m_to_dop
 
 def fake_dop(points, get_uncertainty_m):
     for point in points:
