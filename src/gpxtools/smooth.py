@@ -1,12 +1,9 @@
-#! /usr/bin/python3
-
 import gpxpy
 
 from collections import namedtuple
 import datetime
 from itertools import compress, tee, chain, repeat
 
-import device
 """
 Detects stops in GPX tracks based on HDOP values and simplifies these stops into less point-intensive lines.
 
@@ -31,13 +28,8 @@ class FutureIter:
     def advance_to(self, item):
         self.next_ptr = self.it.index(item)
 
-TRIGGER_TIME = datetime.timedelta(seconds=10)
+TRIGGER_TIME = datetime.timedelta(seconds=10) # stay in one spot for this long to mark the track section as pause
 
-
-def n900_uncertainty_m(point):
-    FACTOR = 10
-    rad = device.n900_uncertainty_m(point)
-    return device.Radius(rad.horz / FACTOR, rad.vert / FACTOR)
 
 def timediff(pt1, pt2):
     return pt1.time - pt2.time
@@ -205,31 +197,4 @@ def save_segments(output, segments):
         segment = gpxpy.gpx.GPXTrackSegment()
         track.segments.append(segment)
         segment.points.extend(seg)
-    print(gpx.to_xml(), file=output)
-
-stop_finders = {'good': find_stops2,
-                'fast': find_stops}
-
-if __name__ == '__main__':
-    import argparse
-    import sys
-    parser = argparse.ArgumentParser()
-    parser.add_argument('file')
-    parser.add_argument('--method', choices=stop_finders, default='good')
-    args = parser.parse_args()
-    with open(args.file) as infile:
-        gpx = gpxpy.parse(infile)
-    
-    output = sys.stdout
-    
-    stop_finder = stop_finders[args.method]
-    
-    get_uncertainty_m = n900_uncertainty_m
-    for track in gpx.tracks:
-        for segment in track.segments:
-            stops = stop_finder(cleanup(segment.points), get_uncertainty_m)
-            #save_segments(output, stops)
-            #save_simplified_stops(output, stops, get_uncertainty_m)
-            #save_movement_only(output, segment.points, stops)
-            segment.points = replace_stops(cleanup(segment.points), stops, get_uncertainty_m)
     print(gpx.to_xml(), file=output)

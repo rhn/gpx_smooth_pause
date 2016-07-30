@@ -1,3 +1,4 @@
+#! /usr/bin/python3
 import gpxpy
 
 from gpxtools.device import n900_uncertainty_m, n900_m_to_dop
