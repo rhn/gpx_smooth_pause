@@ -6,8 +6,8 @@ from collections import namedtuple
 import datetime
 from itertools import compress, tee, chain, repeat
 
-from .gpxtools import device
-from .gpxtools import smooth
+from gpxtools import device
+from gpxtools import smooth
 """
 Detects stops in GPX tracks based on HDOP values and simplifies these stops into less point-intensive lines.
 
